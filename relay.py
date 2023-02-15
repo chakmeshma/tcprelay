@@ -46,7 +46,7 @@ def handleRelay(relayacceptedsocket, tunnelhost, tunnelport):
             try:
                 relay_data = relayacceptedsocket.recv(NET_MSG_SIZE)
                 if relay_data:
-                    tunnelsocket.send(relay_data)
+                    tunnelsocket.sendall(relay_data)
             except socket.error as e:
                 if e.args[0] != socket.EAGAIN and e.args[0] != socket.EWOULDBLOCK:
                     raise e
@@ -54,7 +54,7 @@ def handleRelay(relayacceptedsocket, tunnelhost, tunnelport):
             try:
                 tunnel_data = tunnelsocket.recv(NET_MSG_SIZE)
                 if tunnel_data:
-                    relayacceptedsocket.send(tunnel_data)
+                    relayacceptedsocket.sendall(tunnel_data)
             except socket.error as e:
                 if e.args[0] != socket.EAGAIN and e.args[0] != socket.EWOULDBLOCK:
                     raise e
