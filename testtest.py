@@ -24,7 +24,7 @@ def createNewListenSocket(hostname, port):
     return s
 
 
-def handleEchoServer(relayacceptedsocket):
+def handleEchoServer(relayacceptedsocket: socket.socket):
     global running
 
     relayacceptedsocket.setblocking(False)
@@ -37,7 +37,8 @@ def handleEchoServer(relayacceptedsocket):
                 relayacceptedsocket.send(tunnel_data)
         except socket.error as e:
             if e.args[0] == socket.EAGAIN or e.args[0] == socket.EWOULDBLOCK:
-                time.sleep(0.001)
+                print(e.args[0])
+                time.sleep(1)
             else:
                 raise e
 
@@ -59,4 +60,4 @@ def createRelayServer(relayhost, relayport):
     #     time.sleep(1.0)
 
 
-createRelayServer('localhost', 1666)
+createRelayServer('0.0.0.0', 1666)
