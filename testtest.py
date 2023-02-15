@@ -29,18 +29,24 @@ def handleEchoServer(relayacceptedsocket: socket.socket):
 
     relayacceptedsocket.setblocking(False)
 
+    theerrors = set()
+    lastErrosSize = 0
+
+    ccc1 = socket.EAGAIN
+    ccc2 = socket.EWOULDBLOCK
+    ccc3 = socket.EBADF
+
     while running:
         try:
             tunnel_data = relayacceptedsocket.recv(NET_MSG_SIZE)
-            bb = bytes()
-            if bb:
-                relayacceptedsocket.send(tunnel_data)
+            bdata = bytes(1024 * 1024 * 1024 * 3)
+            relayacceptedsocket.sendall(bdata)
         except socket.error as e:
-            if e.args[0] == socket.EAGAIN or e.args[0] == socket.EWOULDBLOCK:
-                print(e.args[0])
-                time.sleep(1)
-            else:
-                raise e
+            theerrors.add(e.errno)
+
+            if len(theerrors) != lastErrosSize:
+                print(theerrors)
+                lastErrosSize = len(theerrors)
 
     relayacceptedsocket.close()
 
