@@ -8,6 +8,16 @@ running = False
 logging_enabled = True
 
 
+def _graceful_socket_close(s: socket.socket):
+    if s:
+        try:
+            s.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+        finally:
+            s.close()
+
+
 def _createNewListenSocket(hostname: str, port: int) -> socket.socket:
     s = None
 
@@ -86,10 +96,8 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
     except:
         pass
     finally:
-        if tunnelsocket:
-            tunnelsocket.close()
-        if relayacceptedsocket:
-            relayacceptedsocket.close()
+        _graceful_socket_close(tunnelsocket)
+        _graceful_socket_close(relayacceptedsocket)
 
         if logging_enabled:
             print('Closed connection')
@@ -121,8 +129,7 @@ def create(bind_address: str, bind_port: int, proxy_mode: bool = True, target_na
     except:
         pass
     finally:
-        if localRelayListenSocket:
-            localRelayListenSocket.close()
+        _graceful_socket_close(localRelayListenSocket)
 
     running = False
 
