@@ -1,4 +1,6 @@
+import errno
 import socket
+import sys
 import threading
 
 NET_MSG_SIZE = 1024
@@ -120,3 +122,13 @@ def create(bind_address: str, bind_port: int, proxy_mode: bool = True, target_na
             localRelayListenSocket.close()
 
     running = False
+
+
+def _usage():
+    ll = sys.argv[0].split('\\')
+    print(f'Usage: {ll[len(ll) - 1]} [stuff]')
+    sys.exit(1)
+
+
+# Program starts here
+_usage()
