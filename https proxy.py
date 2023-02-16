@@ -63,7 +63,7 @@ def handleRelay(relayacceptedsocket):
                 if relay_data:
                     tunnelsocket.sendall(relay_data)
             except socket.error as e:
-                if e.errno != socket.EWOULDBLOCK:
+                if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
 
             try:
@@ -71,7 +71,7 @@ def handleRelay(relayacceptedsocket):
                 if tunnel_data:
                     relayacceptedsocket.sendall(tunnel_data)
             except socket.error as e:
-                if e.errno != socket.EWOULDBLOCK:
+                if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
     except:
         pass
