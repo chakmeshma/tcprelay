@@ -1,4 +1,4 @@
-import errno
+import os
 import socket
 import sys
 import threading
@@ -124,11 +124,35 @@ def create(bind_address: str, bind_port: int, proxy_mode: bool = True, target_na
     running = False
 
 
-def _usage():
-    ll = sys.argv[0].split('\\')
-    print(f'Usage: {ll[len(ll) - 1]} [stuff]')
-    sys.exit(1)
+def _print_usage():
+    fname = os.path.basename(__file__)
+    print(
+        f'Usage:\n{fname} -p <local address>:<local port>\n{fname} -r <local address>:<local port> <remote '
+        f'address>:<remote port>')
+
+
+def _check_args():
+    if len(sys.argv) < 3:
+        return False
+    if sys.argv[1] != '-p' and sys.argv[1] != '-r':
+        return False
+
+    if sys.argv[1] == '-p':
+        if sys.argv[2].find(':') <= 0 or sys.argv[2].find(':') == (len(sys.argv[2]) - 1):
+            return False
+
+    if sys.argv[1] == '-r':
+        if len(sys.argv) < 4:
+            return False
+        if sys.argv[2].find(':') <= 0 or sys.argv[2].find(':') == (len(sys.argv[2]) - 1):
+            return False
+        if sys.argv[3].find(':') <= 0 or sys.argv[3].find(':') == (len(sys.argv[3]) - 1):
+            return False
+
+    return True
 
 
 # Program starts here
-_usage()
+if not _check_args():
+    _print_usage()
+    sys.exit(1)
