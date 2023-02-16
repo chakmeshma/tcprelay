@@ -140,6 +140,12 @@ def _check_args():
     if sys.argv[1] == '-p':
         if sys.argv[2].find(':') <= 0 or sys.argv[2].find(':') == (len(sys.argv[2]) - 1):
             return False
+        if not sys.argv[2].split(':')[1].isdecimal():
+            return False
+
+        lp = int(sys.argv[2].split(':')[1])
+        if lp < 0 or lp > 65535:
+            return False
 
     if sys.argv[1] == '-r':
         if len(sys.argv) < 4:
@@ -149,10 +155,37 @@ def _check_args():
         if sys.argv[3].find(':') <= 0 or sys.argv[3].find(':') == (len(sys.argv[3]) - 1):
             return False
 
+        if not sys.argv[2].split(':')[1].isdecimal():
+            return False
+        if not sys.argv[3].split(':')[1].isdecimal():
+            return False
+
+        lp = int(sys.argv[2].split(':')[1])
+        if lp < 0 or lp > 65535:
+            return False
+
+        rp = int(sys.argv[3].split(':')[1])
+        if rp < 0 or rp > 65535:
+            return False
+
     return True
 
 
 # Program starts here
 if not _check_args():
     _print_usage()
+    sys.exit(1)
+
+mode = sys.argv[1]
+
+laddrlist = sys.argv[2].split(':')
+laddr = (laddrlist[0], int(laddrlist[1]))
+
+if mode == '-p':
+    create(laddr[0], laddr[1], True)
+elif mode == '-r':
+    raddrlist = sys.argv[3].split(':')
+    raddr = (raddrlist[0], int(raddrlist[1]))
+    create(laddr[0], laddr[1], False, raddr[0], raddr[1])
+else:
     sys.exit(1)
