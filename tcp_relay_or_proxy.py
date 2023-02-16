@@ -5,7 +5,7 @@ import threading
 
 NET_MSG_SIZE = 1024
 running = False
-log_enabled = True
+logging_enabled = True
 
 
 def _createNewListenSocket(hostname: str, port: int) -> socket.socket:
@@ -49,7 +49,7 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
 
             tunnelsocket = _createNewConnectSocket(remote_taddress[0], remote_taddress[1])
 
-            if log_enabled:
+            if logging_enabled:
                 print(f'New connection made to {tunnelsocket.getpeername()}')
 
             outbound_meta_str: str = f'{meta_protocol_str} 200 OK\r\n\r\n'
@@ -58,11 +58,14 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
             relayacceptedsocket.sendall(outbound_meta_data)
         else:
             tunnelsocket = _createNewConnectSocket(target_name, target_port)
-            if log_enabled:
+            if logging_enabled:
                 print(f'New connection made to {tunnelsocket.getpeername()}')
 
         relayacceptedsocket.setblocking(False)
         tunnelsocket.setblocking(False)
+
+        relayacceptedsocket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        tunnelsocket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
         while running:
             try:
@@ -88,7 +91,7 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
         if relayacceptedsocket:
             relayacceptedsocket.close()
 
-        if log_enabled:
+        if logging_enabled:
             print('Closed connection')
 
 
@@ -108,7 +111,7 @@ def create(bind_address: str, bind_port: int, proxy_mode: bool = True, target_na
         while running:
             relayacceptedsocket, relayacceptedaddr = localRelayListenSocket.accept()
 
-            if log_enabled:
+            if logging_enabled:
                 print(f'Accepted new connection from {relayacceptedaddr}')
 
             relay_thread = threading.Thread(target=_handleRelay,
