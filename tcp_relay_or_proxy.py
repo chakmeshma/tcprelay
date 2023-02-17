@@ -2,10 +2,12 @@ import os
 import socket
 import sys
 import threading
+from timeit import default_timer as timer
 
-NET_MSG_SIZE = 1024
+receive_buffer_size = 1024
 running = False
 logging_enabled = True
+proxy_mode_header_timeout = 20
 
 
 def _graceful_socket_close(s: socket.socket):
@@ -40,22 +42,51 @@ def _createNewConnectSocket(hostname: str, port: int) -> socket.socket:
 def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, target_name: str = None,
                  target_port: int = None):
     global running
-    global NET_MSG_SIZE
-
+    global receive_buffer_size
     tunnelsocket = None
 
     try:
+        relayacceptedsocket.setblocking(False)
+        relayacceptedsocket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
         if proxy_mode:
-            inbound_meta_data: bytes = relayacceptedsocket.recv(4096)
+            global proxy_mode_header_timeout
+
+            acc_inbound_meta_data = bytearray()
+
+            proxy_header_time_start = timer()
+
+            while running:
+                if (timer() - proxy_header_time_start) > proxy_mode_header_timeout:
+                    raise Exception('Proxy Mode get header time out')
+
+                try:
+                    acc_inbound_meta_data += relayacceptedsocket.recv(receive_buffer_size)
+
+                    dblnewline_pos = acc_inbound_meta_data.find(b'\x0D\x0A\x0D\x0A')
+
+                    if dblnewline_pos != -1:
+                        break
+
+                except socket.error as e:
+                    if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
+                        raise e
+
+            inbound_meta_data: bytes = bytes(acc_inbound_meta_data)
             inbound_meta_data_str: str = inbound_meta_data.decode('ascii')
-            fspace_pos = inbound_meta_data_str.index(' ')
-            sspace_pos = inbound_meta_data_str.index(' ', fspace_pos + 1)
-            remote_taddress_str = inbound_meta_data_str[fspace_pos + 1:sspace_pos]
-            remote_taddress_ss = remote_taddress_str.split(':')
+
+            # CHECK HEADER START
+            inbound_header_splitted_line = inbound_meta_data_str.split('\r\n')
+            header_fline_splitted = inbound_header_splitted_line[0].split(' ')
+
+            if (header_fline_splitted[0] != 'CONNECT') or (
+                    header_fline_splitted[2] != 'HTTP/1.0' and header_fline_splitted[2] != 'HTTP/1.1'):
+                raise Exception('Proxy Mode invalid or not supported header')
+            # CHECK HEADER STOP
+
+            remote_taddress_ss = header_fline_splitted[1].split(':')
             remote_taddress = (remote_taddress_ss[0], int(remote_taddress_ss[1]))
-            fnl_pos = inbound_meta_data_str.index('\r')
-            lrs_pos = inbound_meta_data_str[:fnl_pos].rindex(' ')
-            meta_protocol_str = inbound_meta_data_str[lrs_pos + 1:fnl_pos]
+            meta_protocol_str = header_fline_splitted[2]
 
             tunnelsocket = _createNewConnectSocket(remote_taddress[0], remote_taddress[1])
 
@@ -71,15 +102,12 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
             if logging_enabled:
                 print(f'New connection made to {tunnelsocket.getpeername()}')
 
-        relayacceptedsocket.setblocking(False)
         tunnelsocket.setblocking(False)
-
-        relayacceptedsocket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         tunnelsocket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
         while running:
             try:
-                relay_data = relayacceptedsocket.recv(NET_MSG_SIZE)
+                relay_data = relayacceptedsocket.recv(receive_buffer_size)
 
                 tunnelsocket.sendall(relay_data)
             except socket.error as e:
@@ -87,7 +115,7 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
                     raise e
 
             try:
-                tunnel_data = tunnelsocket.recv(NET_MSG_SIZE)
+                tunnel_data = tunnelsocket.recv(receive_buffer_size)
 
                 relayacceptedsocket.sendall(tunnel_data)
             except socket.error as e:
@@ -100,7 +128,7 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
         _graceful_socket_close(relayacceptedsocket)
 
         if logging_enabled:
-            print('Closed connection')
+            print('Closed connection socket pair')
 
 
 def create(bind_address: str, bind_port: int, proxy_mode: bool = True, target_name: str = None,
