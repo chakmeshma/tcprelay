@@ -80,16 +80,16 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
         while running:
             try:
                 relay_data = relayacceptedsocket.recv(NET_MSG_SIZE)
-                if relay_data:
-                    tunnelsocket.sendall(relay_data)
+
+                tunnelsocket.sendall(relay_data)
             except socket.error as e:
                 if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
 
             try:
                 tunnel_data = tunnelsocket.recv(NET_MSG_SIZE)
-                if tunnel_data:
-                    relayacceptedsocket.sendall(tunnel_data)
+
+                relayacceptedsocket.sendall(tunnel_data)
             except socket.error as e:
                 if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
