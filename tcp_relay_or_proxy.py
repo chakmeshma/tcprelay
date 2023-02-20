@@ -108,19 +108,20 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
         while running:
             try:
                 relay_data = relayacceptedsocket.recv(receive_buffer_size)
-
-                tunnelsocket.sendall(relay_data)
             except socket.error as e:
                 if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
+            else:
+                tunnelsocket.sendall(relay_data)
 
             try:
                 tunnel_data = tunnelsocket.recv(receive_buffer_size)
-
-                relayacceptedsocket.sendall(tunnel_data)
             except socket.error as e:
                 if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
+            else:
+                relayacceptedsocket.sendall(tunnel_data)
+
     except:
         pass
     finally:
@@ -131,8 +132,8 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
             print('Closed connection socket pair')
 
 
-def create(bind_address: str, bind_port: int, proxy_mode: bool = True, target_name: str = None,
-           target_port: int = None):
+def createServer(bind_address: str, bind_port: int, proxy_mode: bool = True, target_name: str = None,
+                 target_port: int = None):
     if not proxy_mode:
         if (not target_name) or (not target_port):
             raise Exception('Address and Port must be provided when relay mode (not proxy)')
@@ -170,6 +171,9 @@ def _print_usage():
 
 
 def _check_args():
+    def _is_valid_port(port_str: str):
+        return port_str.isdecimal() and (0 <= int(port_str) < 65536)
+
     if len(sys.argv) < 3:
         return False
     if sys.argv[1] != '-p' and sys.argv[1] != '-r':
@@ -178,11 +182,7 @@ def _check_args():
     if sys.argv[1] == '-p':
         if sys.argv[2].find(':') <= 0 or sys.argv[2].find(':') == (len(sys.argv[2]) - 1):
             return False
-        if not sys.argv[2].split(':')[1].isdecimal():
-            return False
-
-        lp = int(sys.argv[2].split(':')[1])
-        if lp < 0 or lp > 65535:
+        if not _is_valid_port(sys.argv[2].split(':')[1]):
             return False
 
     if sys.argv[1] == '-r':
@@ -193,17 +193,9 @@ def _check_args():
         if sys.argv[3].find(':') <= 0 or sys.argv[3].find(':') == (len(sys.argv[3]) - 1):
             return False
 
-        if not sys.argv[2].split(':')[1].isdecimal():
+        if not _is_valid_port(sys.argv[2].split(':')[1]):
             return False
-        if not sys.argv[3].split(':')[1].isdecimal():
-            return False
-
-        lp = int(sys.argv[2].split(':')[1])
-        if lp < 0 or lp > 65535:
-            return False
-
-        rp = int(sys.argv[3].split(':')[1])
-        if rp < 0 or rp > 65535:
+        if not _is_valid_port(sys.argv[3].split(':')[1]):
             return False
 
     return True
@@ -220,10 +212,10 @@ laddrlist = sys.argv[2].split(':')
 laddr = (laddrlist[0], int(laddrlist[1]))
 
 if mode == '-p':
-    create(laddr[0], laddr[1], True)
+    createServer(laddr[0], laddr[1], True)
 elif mode == '-r':
     raddrlist = sys.argv[3].split(':')
     raddr = (raddrlist[0], int(raddrlist[1]))
-    create(laddr[0], laddr[1], False, raddr[0], raddr[1])
+    createServer(laddr[0], laddr[1], False, raddr[0], raddr[1])
 else:
     sys.exit(1)
