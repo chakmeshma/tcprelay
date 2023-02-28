@@ -1,4 +1,5 @@
 import os
+import random
 import socket
 import sys
 import threading
@@ -6,6 +7,7 @@ import hashlib
 import pickle
 from timeit import default_timer as timer
 from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
 
 receive_buffer_size = 1024
 running = False
@@ -57,7 +59,7 @@ def _createNewConnectSocket(hostname: str, port: int) -> socket.socket:
     return s
 
 
-def _hCalculateCheckSum(part):
+def _calculateCheckSum(part):
     global magic_cookie
 
     bCalcMD5 = hashlib.md5(part).hexdigest().encode('ascii')
@@ -79,7 +81,7 @@ def _obfsrecv(s: socket.socket, buffers: dict):
 
     buffers[s] += newReceivedData
 
-    returnOutput = bytearray()
+    plainData = bytearray()
 
     atLeastOneValidBlock = False
 
@@ -92,14 +94,14 @@ def _obfsrecv(s: socket.socket, buffers: dict):
             if H < 0 or H > 13:
                 continue
 
-            hCalculatedCheckSum = _hCalculateCheckSum(block[2:2 + H + 1])
+            hCalculatedCheckSum = _calculateCheckSum(block[2:2 + H + 1])
             nCalculatedCheckSum = socket.htons(hCalculatedCheckSum)
             nReceivedChecksum = block[0:2]
 
             if nReceivedChecksum != nCalculatedCheckSum:
                 continue
 
-            returnOutput += block[3:3 + H]
+            plainData += block[3:3 + H]
             del buffers[s][0:16]
             validBlock = True
             atLeastOneValidBlock = True
@@ -109,15 +111,39 @@ def _obfsrecv(s: socket.socket, buffers: dict):
             raise Exception('Invalid Obfuscation PDU')
 
     if atLeastOneValidBlock:
-        return bytes(returnOutput)
+        return bytes(plainData)
     else:
         e = socket.error()
         e.errno = socket.EWOULDBLOCK
         raise e
 
 
+def _obfssend(s: socket.socket, data):
+    global cipherpool
+
+    dataQueue = bytearray(data)
+
+    cipherData = bytearray()
+
+    while len(dataQueue) > 0:
+        H = random.randrange(0, min(len(dataQueue), 13) + 1)
+        newBlock = bytearray()
+        newBlock += H.to_bytes(length=1, byteorder='big', signed=False)
+        newBlock += dataQueue[0:H]  # remove from beginning
+        calculatedCheckSum = _calculateCheckSum(newBlock)
+        newBlock = calculatedCheckSum.to_bytes(length=2, byteorder='big', signed=False) + newBlock
+        paddingCount = 16 - len(newBlock)
+        padding = get_random_bytes(paddingCount)
+        newBlock += padding
+        cipher = cipherpool[random.randrange(0, len(cipherpool))]
+        cipherData += cipher.encrypt(newBlock)
+        del dataQueue[0:H]
+
+    s.sendall(cipherData)
+
+
 def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, target_name: str = None,
-                 target_port: int = None, **obfssettings):
+                 target_port: int = None, obfssettings=tuple()):
     global running
     global receive_buffer_size
     tunnelsocket = None
@@ -212,7 +238,7 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
 
 
 def createServer(bind_address: str, bind_port: int, proxy_mode: bool = True, target_name: str = None,
-                 target_port: int = None, **obfssettings):
+                 target_port: int = None, obfssettings=tuple()):
     if not proxy_mode:
         if (not target_name) or (not target_port):
             raise Exception('Address and Port must be provided when relay mode (not proxy)')
