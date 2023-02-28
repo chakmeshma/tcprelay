@@ -316,8 +316,33 @@ def createServer(bind_address: str, bind_port: int, proxy_mode: bool = True, tar
 def _print_usage():
     fname = os.path.basename(__file__)
     print(
-        f'Usage:\n{fname} -p <local address>:<local port>\n{fname} -r <local address>:<local port> <remote '
-        f'address>:<remote port>')
+        f'Usage:\n'
+        f'{fname} -r <local address:local port> <remote address:remote port> [-obAI] [-obAO] [-obCI] [-obCO]\n'
+        f'{fname} -p <local address:local port> [-obPI] [-obPO] [-obAI] [-obAO] [-obCI] [-obCO]\n\n'
+        f'Example:\n'
+        f'{fname} -r 127.0.0.1:1234 www.google.com:443 -obAI -obCO\n'
+        f'{fname} -p 0.0.0.0:7777 -obPI -obCO -obCI')
+
+
+def _get_obfuscation_args():
+    obfs_valid_arg_names = {'PI', 'PO', 'AI', 'AO', 'CI', 'CO'}
+
+    argv_subset = list()
+
+    if sys.argv[1] == '-p':
+        argv_subset = sys.argv[3:]
+    elif sys.argv[1] == '-r':
+        argv_subset = sys.argv[4:]
+
+    obfs_args = list()
+
+    for enteredArg in argv_subset:
+        for obfs_valid_arg_name in obfs_valid_arg_names:
+            if f'{enteredArg}' == f'-ob{obfs_valid_arg_name}':
+                obfs_args.append(obfs_valid_arg_name)
+                break
+
+    return tuple(obfs_args)
 
 
 def _check_args():
@@ -363,11 +388,13 @@ mode = sys.argv[1]
 laddrlist = sys.argv[2].split(':')
 laddr = (laddrlist[0], int(laddrlist[1]))
 
+obfsargs = _get_obfuscation_args()
+
 if mode == '-p':
-    createServer(laddr[0], laddr[1], True)
+    createServer(laddr[0], laddr[1], True, obfssettings=obfsargs)
 elif mode == '-r':
     raddrlist = sys.argv[3].split(':')
     raddr = (raddrlist[0], int(raddrlist[1]))
-    createServer(laddr[0], laddr[1], False, raddr[0], raddr[1])
+    createServer(laddr[0], laddr[1], False, raddr[0], raddr[1], obfssettings=obfsargs)
 else:
     sys.exit(1)
