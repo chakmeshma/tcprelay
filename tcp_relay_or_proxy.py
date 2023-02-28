@@ -146,9 +146,31 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
                  target_port: int = None, obfssettings=tuple()):
     global running
     global receive_buffer_size
+
+    ObPI = False
+    ObPO = False
+    ObAI = False
+    ObAO = False
+    ObCI = False
+    ObCO = False
+
+    for obfssetting in obfssettings:
+        if obfssetting == 'PI':
+            ObPI = True
+        if obfssetting == 'PO':
+            ObPO = True
+        if obfssetting == 'AI':
+            ObAI = True
+        if obfssetting == 'AO':
+            ObAO = True
+        if obfssetting == 'CI':
+            ObCI = True
+        if obfssetting == 'CO':
+            ObCO = True
+
     tunnelsocket = None
 
-    obfs_socket_buffers = dict()
+    obfs_socket_input_buffers = dict()
 
     try:
         relayacceptedsocket.setblocking(False)
@@ -166,7 +188,10 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
                     raise Exception('Proxy Mode get header time out')
 
                 try:
-                    acc_inbound_meta_data += relayacceptedsocket.recv(receive_buffer_size)
+                    if ObPI:
+                        acc_inbound_meta_data += _obfsrecv(relayacceptedsocket, obfs_socket_input_buffers)
+                    else:
+                        acc_inbound_meta_data += relayacceptedsocket.recv(receive_buffer_size)
 
                     dblnewline_pos = acc_inbound_meta_data.find(b'\x0D\x0A\x0D\x0A')
 
@@ -201,7 +226,10 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
             outbound_meta_str: str = f'{meta_protocol_str} 200 OK\r\n\r\n'
             outbound_meta_data: bytes = outbound_meta_str.encode('ascii')
 
-            relayacceptedsocket.sendall(outbound_meta_data)
+            if ObPO:
+                _obfssend(relayacceptedsocket, outbound_meta_data)
+            else:
+                relayacceptedsocket.sendall(outbound_meta_data)
         else:
             tunnelsocket = _createNewConnectSocket(target_name, target_port)
             if logging_enabled:
@@ -212,21 +240,32 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
 
         while running:
             try:
-                relay_data = relayacceptedsocket.recv(receive_buffer_size)
+                if ObAI:
+                    relay_data = _obfsrecv(relayacceptedsocket, obfs_socket_input_buffers)
+                else:
+                    relay_data = relayacceptedsocket.recv(receive_buffer_size)
             except socket.error as e:
                 if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
             else:
-                tunnelsocket.sendall(relay_data)
+                if ObCO:
+                    _obfssend(tunnelsocket, relay_data)
+                else:
+                    tunnelsocket.sendall(relay_data)
 
             try:
-                tunnel_data = tunnelsocket.recv(receive_buffer_size)
+                if ObCI:
+                    tunnel_data = _obfsrecv(tunnelsocket, obfs_socket_input_buffers)
+                else:
+                    tunnel_data = tunnelsocket.recv(receive_buffer_size)
             except socket.error as e:
                 if e.errno != socket.EWOULDBLOCK and e.errno != socket.EAGAIN:
                     raise e
             else:
-                relayacceptedsocket.sendall(tunnel_data)
-
+                if ObAO:
+                    _obfssend(relayacceptedsocket, tunnel_data)
+                else:
+                    relayacceptedsocket.sendall(tunnel_data)
     except:
         pass
     finally:
