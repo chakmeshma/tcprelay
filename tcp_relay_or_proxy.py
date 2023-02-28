@@ -230,7 +230,8 @@ def _handleRelay(relayacceptedsocket: socket.socket, proxy_mode: bool = True, ta
                 null = relayacceptedsocket.recv(1024 * 1024)  # TODO Flush input buffer here?
             except:
                 pass
-            del obfs_socket_input_buffers[relayacceptedsocket]  # TODO Flush input buffer here?
+            if relayacceptedsocket in obfs_socket_input_buffers:
+                del obfs_socket_input_buffers[relayacceptedsocket]  # TODO Flush input buffer here?
 
             if ObPO:
                 _obfssend(relayacceptedsocket, outbound_meta_data)
