@@ -94,11 +94,7 @@ def _obfsrecv(s: socket.socket, buffers: dict):
             if H < 0 or H > 13:
                 continue
 
-            hCalculatedCheckSum = _calculateCheckSum(block[2:2 + H + 1])
-            nCalculatedCheckSum = socket.htons(hCalculatedCheckSum)
-            nReceivedChecksum = block[0:2]
-
-            if nReceivedChecksum != nCalculatedCheckSum:
+            if block[0:2] != _calculateCheckSum(block[2:2 + H + 1]).to_bytes(length=2, byteorder='big', signed=False):
                 continue
 
             plainData += block[3:3 + H]
