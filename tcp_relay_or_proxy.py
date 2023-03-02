@@ -122,7 +122,7 @@ def _obfssend(s: socket.socket, data):
     cipherData = bytearray()
 
     while len(dataQueue) > 0:
-        H = random.randrange(0, min(len(dataQueue), 13) + 1)
+        H = min(len(dataQueue), 13)
         newBlock = bytearray()
         newBlock += H.to_bytes(length=1, byteorder='big', signed=False)
         newBlock += dataQueue[0:H]  # remove from beginning
