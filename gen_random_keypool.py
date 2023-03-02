@@ -3,7 +3,7 @@ from Crypto.Random import get_random_bytes
 
 keypool = list()
 
-for i in range(32):
+for i in range(7):
     key = get_random_bytes(32)
     keypool.append(key)
 
